@@ -18,8 +18,6 @@ module multisig_treasury::treasury {
     const EInvalidAmount: u64 = 9;
     const ESpendingLimitExceeded: u64 = 10;
     const ENotWhitelisted: u64 = 11;
-    const EInvalidCategory: u64 = 12;
-    const EEmergencyThresholdNotMet: u64 = 13;
     const EInCooldownPeriod: u64 = 14;
     const EMaxBatchSizeExceeded: u64 = 15;
     const EProposalAlreadyExecuted: u64 = 16;
@@ -162,6 +160,7 @@ module multisig_treasury::treasury {
         timestamp: u64,
     }
 
+    #[allow(unused_field)]
     public struct PolicyUpdated has copy, drop {
         treasury_id: ID,
         updated_by: address,
@@ -390,7 +389,7 @@ module multisig_treasury::treasury {
         );
         
         // Execute all transactions
-        let i = 0;
+        let mut i = 0;
         let len = vector::length(&proposal.transactions);
         while (i < len) {
             let tx = vector::borrow(&proposal.transactions, i);
@@ -717,7 +716,6 @@ module multisig_treasury::treasury {
         let time_lock_until = current_time + time_lock_duration;
         
         let proposal_uid = object::new(ctx);
-        let proposal_id = object::uid_to_inner(&proposal_uid);
         
         let mut signatures = vector::empty();
         vector::push_back(&mut signatures, sender);
@@ -725,14 +723,7 @@ module multisig_treasury::treasury {
         treasury.proposal_count = treasury.proposal_count + 1;
         treasury.emergency_config.last_emergency_ts = current_time;
         
-        event::emit(EmergencyWithdrawal {
-            treasury_id: object::uid_to_inner(&treasury.id),
-            amount: total_amount,
-            reason: description,
-            timestamp: current_time,
-        });
-        
-        Proposal {
+        let proposal = Proposal {
             id: proposal_uid,
             treasury_id: object::uid_to_inner(&treasury.id),
             proposer: sender,
@@ -745,7 +736,16 @@ module multisig_treasury::treasury {
             executed: false,
             is_emergency: true,
             total_amount,
-        }
+        };
+        
+        event::emit(EmergencyWithdrawal {
+            treasury_id: object::uid_to_inner(&treasury.id),
+            amount: total_amount,
+            reason: proposal.description,
+            timestamp: current_time,
+        });
+        
+        proposal
     }
 
     /// Freeze treasury (emergency only)
