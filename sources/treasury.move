@@ -479,6 +479,9 @@ module multisig_treasury::treasury {
         amount: u64,
         _category: &String
     ): u64 {
+        if (config.time_lock_base == 0) {
+            return 0
+        };
         let additional = if (config.time_lock_factor > 0) {
             amount / config.time_lock_factor
         } else {
